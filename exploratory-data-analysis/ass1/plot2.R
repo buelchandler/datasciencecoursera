@@ -1,23 +1,19 @@
 dataFile <- "household_power_consumption.txt" ## assume file in working directory
-power <- read.table(dataFile, header=TRUE, sep=";", stringsAsFactors=FALSE, dec=".")
+power <- read.table(dataFile, header=TRUE, sep=";", stringsAsFactors=FALSE, na.strings = "?")
 
 ## for this graph, we are only looking at 2007-02-01 and 2007-02-02
-subPower <- power[power$Date %in% c("1/2/2007","2/2/2007") ,]
+power$Date <- as.Date(power$Date, format="%d/%m/%Y")
+subPower <- power[(power$Date=="2007-02-01") | (power$Date=="2007-02-02"),]
 ## clean up our data column we're interested in
-globalActivePower <- as.numeric(subPower$Global_active_power)
+subPower$Global_active_power <- as.numeric(as.character(subPower$Global_active_power))
 ## clean-up dates
-datetime <- strptime(paste(subPower$Date, subPower$Time, sep=" "), "%d/%m/%Y %H:%M:%S") 
+subPower <- transform(subPower, dtstamp=as.POSIXct(paste(Date, Time)), "%d/%m/%Y %H:%M:%S")
 
 ## prep the graphics device
 png("plot2.png", width=480, height=480)
 
 ## plot it
-plot(datetime,
-     globalActivePower,
-     type="l",
-     xlab="",
-     ylab="Global Active Power (kilowatts)"
-  )
+with(subPower, plot(dtstamp, Global_active_power, ylab="Global Active Power (kilowatts)", xlab="", type = "l"))
 
 ## end graphics device
 dev.off()
