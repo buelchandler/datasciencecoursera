@@ -33,7 +33,8 @@ with(subPower, plot(dtstamp, Sub_metering_1, ylab="Energy Submetering", xlab="",
 with(subPower, lines(dtstamp, Sub_metering_1, col = "black"))
 with(subPower, lines(dtstamp, Sub_metering_2, col = "red"))
 with(subPower, lines(dtstamp, Sub_metering_3, col = "blue"))
-legend(as.POSIXct("2007-02-04 11:00:00"), 45, bty="n", trace=FALSE, cex=0.9, pt.cex=0.5, seg.len=0.5, xjust=1, x.intersp=0.2, y.intersp=0.2, lty=c(1,1), col = c("black","red","blue"), legend = c("Sub_metering_1","Sub_metering_2", "Sub_metering_3"))
+legend("topright", bty="n", trace=FALSE, cex=0.9, pt.cex=0.5, seg.len=0.5, lty=c(1,1), col = c("black","red","blue"), legend = c("Sub_metering_1","Sub_metering_2", "Sub_metering_3"))
+#legend(as.POSIXct("2007-02-04 11:00:00"), 45, bty="n", trace=FALSE, cex=0.9, pt.cex=0.5, seg.len=0.5, xjust=1, x.intersp=0.2, y.intersp=0.2, lty=c(1,1), col = c("black","red","blue"), legend = c("Sub_metering_1","Sub_metering_2", "Sub_metering_3"))
 
 ## lower right plot
 with(subPower, plot(dtstamp, Global_reactive_power, ylab="Global_reactive_power", xlab="datetime", type = "l"))
