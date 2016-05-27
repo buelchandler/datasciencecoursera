@@ -1,0 +1,329 @@
+---
+title: "Weather Impact on Life and Property"
+author: "Buel Chandler"
+output: 
+  html_document:
+    keep_md: true
+---
+#Weather Impact on Life and Property
+
+The U.S. National Oceanic and Atmospheric Administration's (NOAA) maintains a storm database which contains information of major weather events that have occured over the years (since 1950) in and around the United States. The information includes when and where the events occured, and impacts to life (fatalities, injuries), and impacts to property and crops. And those impacts are significant. In this paper we look at weather events that caused biggest impacts.
+
+The [NOAA Storm Events](http://www.ncdc.noaa.gov/stormevents/details.jsp) website is a good starting point for exploring the resource. We note that right of we are told that only *Tornadoes* were covered from 1950 (the database starting point) through 1954. *Thunderstorm Wind, Hail* were added in 1955 as unique weather events. In 1996, 45 other unique weather events were added (e.g., *Hurricanes*, *Ice Storms*, et cetera)
+
+## Data Processing: Loading and cleaning the data
+
+```{r global_options, include=TRUE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='figure-html/',
+                      echo=TRUE, warning=TRUE, message=TRUE)
+```
+
+### Load needed libraries, and find, then read-in our raw NOAA data
+
+```{r}
+## make sure any libraries we need are installed, then load them into workspace
+pkgs = c("downloader", "dplyr", "car", "stringr", "lubridate", "ggplot2", "lattice")
+
+if(length(new.pkgs <- setdiff(pkgs, rownames(installed.packages())))) 
+  install.packages(new.pkgs, repos="http://cran.rstudio.com/")
+
+suppressMessages(library(downloader)) ## getting files off the net
+suppressMessages(library(dplyr)) ## data manipulation
+suppressMessages(library(car)) ## to use "recode" function
+suppressMessages(library(stringr)) ## some string handling functions
+suppressMessages(library(lubridate)) ## some date/time handling functions
+suppressMessages(library(ggplot2)) ## for our dotcharts
+suppressMessages(library(lattice)) ## for our dotcharts
+
+## setup file handles, and get the file and unzip if not in working directory
+fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+zipfile <- "./data/repdata_data_StormData.csv.bz2"
+if(!file.exists(zipfile)) {
+  download(fileURL, dest=zipfile, mode="wb")
+#  unzip(zipfile, exdir = "./")
+}
+
+#print out the date the raw data was downloaded
+tt <- file.info(zipfile) # get all file info
+cat("File ", zipfile, " created on ", format(tt$ctime, "%Y-%m-%d %H:%M:%S %Z"))
+
+## read in raw file, put it to a data.table
+all.storms <- read.csv(zipfile) 
+
+str(all.storms) ## quick look at the dataset
+```
+
+### Subset our data
+
+As noted in our introduction above, prior to 1996 the database tracked *Tornado* related events only. So as to not skew our analysis, we will only examine data from 1996 on, when the use of 48 unique weather events was instituted (**EVTYPE**). We will use the variable **BGN_DATE**, which records the date event started.
+
+Impact to human life are covered in two variables: **FATALITIES**, **INJURIES**, which indicates number of each for any particular event.
+
+Property damage is indicated by variable **PROPDMG**, which indicates some estimated monetary loss, and magnitude of that loss by **PROPDMGEXP**. Though not consistant throughout, we could see something like an overall $10,000,000 loss given as a **PROBDMG** of 10 and a **PROPDMGEXP** of "M" (for million). Details are broken out in an appropriate code segment below.
+
+Crop damage is handled similar to property damage data, and is given in corresponding variables **CROPDMG** and **CROPDMGEXP**, and is detailed in an appropriate code segment below.
+
+```{r}
+## get good datetimes
+all.storms$year <- year(as.POSIXct(strptime(all.storms$BGN_DATE, "%m/%d/%Y %H:%M:%S")))
+
+storms <- all.storms %>%
+  select(year, EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP) %>%
+  filter(year >= 1996)
+```
+
+### Clean PROPDMGEXP and CROPDMGEXP
+
+A preliminary look at **PROPDMGEXP** and **CROPDMGEXP** shows some pretty strange results:
+```{r}
+unique(storms$PROPDMGEXP)
+unique(storms$CROPDMGEXP)
+```
+
+As there appears to be "bad" data in these two fields, we'll clean them up by recoding them using the *recode* function from the *car* (Companion to Applied Regression) library available on CRAN.
+
+```{r}
+storms$PROPDMGEXP <- recode(storms$PROPDMGEXP, ## look for magnitude adjustment
+                           "c('h', 'H') = 100.0;
+                            c('k', 'K') = 1000.0;
+                            c('m', 'M') = 1000000.0;
+                            c('b', 'B') = 1000000000.0;
+                            else = 1.0",
+                            as.factor.result = FALSE, ## was a factor
+                            as.numeric.result = TRUE) ## now its numeric
+
+storms$prop <- storms$PROPDMG * storms$PROPDMGEXP ## total dollars property damage for this event
+```
+
+```{r}
+storms$CROPDMGEXP <- recode(storms$CROPDMGEXP, ## look for magnitude adjustment
+                           "c('h', 'H') = 100.0;
+                            c('k', 'K') = 1000.0;
+                            c('m', 'M') = 1000000.0;
+                            c('b', 'B') = 1000000000.0;
+                            else = 1.0",
+                            as.factor.result = FALSE, ## was a factor
+                            as.numeric.result = TRUE) ## now its numeric
+
+storms$crop <- storms$CROPDMG * storms$CROPDMGEXP ## total dollars crop damage for this event
+
+```
+
+### EVTYPE is Butt-Ugly
+
+So NOAA has 48 unique standard events. Should be easy, but in the real world it's not. How many unique events in our data set?
+
+```{r}
+## Total number of unique EVTYPE in the dataset
+num.EVTYPE <- length(unique(storms$EVTYPE))
+num.EVTYPE
+
+## show the first 25
+head(sort(unique(storms$EVTYPE)), 25)
+```
+
+Perusing the first 25 unique EVTYPE we see liberties were taken in recording any given event. So we need to try and fit `r length(unique(storms$EVTYPE))` into our standard NOAA approved 48.
+
+First order of business is to get a canonical list of the 48 standard events. We created a text file that listed the events one to a line using copy/paste from the NOAA document [here.](http://www1.ncdc.noaa.gov/pub/data/swdi/stormevents/csvfiles/Storm-Data-Export-Format.docx) 
+
+```{r}
+canonicalFile = "./data/valid-events.txt"
+## might as well put into all lower, no extra spaces format used through rest of analysis
+canonical <- str_to_lower(str_trim(readLines(canonicalFile)))
+str(canonical)
+```
+
+So let's first find which events are already valid in our working dataset:
+```{r}
+## convert EVTYPE to lower case, and remove extra spaces
+storms$EVTYPE <- str_to_lower(str_trim(storms$EVTYPE))
+
+## valid will contain the canonical label, else NA if EVTYPE is bad when last checked
+## and we populate with all the observations that already have a "good" EVTYPE
+storms$valid <- canonical[match(storms$EVTYPE, canonical)] 
+```
+
+The following code snippets are used interactively for the most part as we repeatedly analize bad EVTYPE as we try and winnow these bad into good
+
+```{r}
+## show all "bad" EVTYPE not accounted for
+## used heavily interactively as we work problem EVTYPE
+bad <- subset(storms, is.na(valid))
+
+## how many bad EVTYPE remain
+bad.EVTYPE <- length(unique(bad$EVTYPE)) ## save the number for reporting results
+## how many bad records remain
+bad.recs <- nrow(bad) ## save the number for reporting results
+
+## the following piece of code was used interactively to ferret out bad EVTTPE which contain some
+## particular text. This is the workhorse
+## unique(bad$EVTYPE[str_detect(bad$EVTYPE, "snow")]) ## substitue "snow" for whatever you want to look at
+```
+
+Note that we followed a repeating process of looking at partial strings to determine where to best fit a bad EVTYPE. The order we do the following remapping can be important, as some strings contain conflicting determinations, so sometimes we need precise matching before using a general matching.
+
+```{r}
+## at this point we have 148,899 bad EVTYPE (384 unique)
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "flash")] <- "flash flood"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "flood")] <- "flood"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "fld")] <- "flood"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "lakeshore flood")] <- "flood"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "dam b")] <- "flood"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "hail")] <- "hail"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "marine tstm")] <- "marine thunderstorm wind "
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "non tstm wind")] <- "strong wind"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "non-tstm wind")] <- "strong wind"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "tstm wind")] <- "thunderstorm wind"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "thunderstorm wind")] <- "thunderstorm wind"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "tstm")] <- "thunderstorm"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "thunder")] <- "thunderstorm"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "wall")] <- "thunderstorm"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "metro storm")] <- "thunderstorm"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "ice")] <- "ice storm"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "icy")] <- "ice storm"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "freezing ")] <- "ice storm"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "glaze")] <- "ice storm"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "chill")] <- "cold/wind chill"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "cool")] <- "cold/wind chill"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "cold")] <- "cold/wind chill"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "freeze")] <- "cold/wind chill"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "hypo")] <- "cold/wind chill"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "hype")] <- "cold/wind chill"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "sleet")] <- "sleet"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "bli")] <- "blizzard"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "wind")] <- "high wind"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "wnd")] <- "high wind"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "dust")] <- "dust storm"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "lake-eff")] <- "lake-effect snow"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "lake eff")] <- "lake-effect snow"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "snow")] <- "heavy snowr"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "wint")] <- "winter weather"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "mixed pre")] <- "winter weather"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "heat")] <- "heat"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "warm")] <- "heat"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "hot")] <- "heat"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "hot")] <- "heat"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "record temp")] <- "heat"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "record high")] <- "heat"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "ture record")] <- "heat"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "monthly temp")] <- "heat"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "record low rainfall")] <- "drought"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "dry")] <- "drought"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "dri")] <- "drought"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "rain")] <- "heavy rain"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "prec")] <- "heavy rain"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "wet")] <- "heavy rain"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "typh")] <- "hurricane (typhoon)"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "hurr")] <- "hurricane (typhoon)"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "remnant")] <- "hurricane (typhoon)"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "tide")] <- "storm surge/tide"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "surf")] <- "storm surge/tide"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "surge")] <- "storm surge/tide"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "flag")] <- "storm surge/tide"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "swell")] <- "storm surge/tide"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "seas")] <- "storm surge/tide"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "wave")] <- "storm surge/tide"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "water")] <- "storm surge/tide"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "marine")] <- "storm surge/tide"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "coast")] <- "high surf"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "beach")] <- "high surf"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "rip")] <- "rip current"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "fire")] <- "wildfire"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "smoke")] <- "wildfire"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "slid")] <- "avalanche"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "lands")] <- "avalanche"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "volc")] <- "volcanic ash"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "vog")] <- "dense fog"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "fog")] <- "dense fog"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "micro")] <- "tornado"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "torn")] <- "tornado"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "funnel")] <- "tornado"
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "burst")] <- "tornado"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "frost")] <- "frost"
+
+storms$valid[is.na(storms$valid) & str_detect(storms$EVTYPE, "spout")] <- "waterspout"
+
+```
+
+We repeat some code to tell us how well we did reducing the bad EVTYPE
+
+```{r}
+## show all "bad" EVTYPE not accounted for
+## used heavily interactively as we work problem EVTYPE
+bad <- subset(storms, is.na(valid))
+bad.EVTYPE <- sort(unique(bad$EVTYPE))
+final.recs <- nrow(bad) ## how many bad records remain
+final.EVTYPE <- length(unique(bad$EVTYPE)) ## how many unique bad EVTYPE remain
+```
+
+So how well did we do?
+Our original raw data had `r nrow(all.storms)` rows. We filtered the raw by taking only records from 1996 on when NOAA expanded to `r nrow(canonical)` event categories, giving us `r nrow(storms)`. However we saw that the initial filtered dataset had `r num.EVTYPE` unique EVTYPE, requiring lots of cleaning.
+
+After we did the initial pass to account for properly named EVTYPE, we had `r bad.EVTYPE` EVTYPE not in canonical format spread over `r bad.recs` rows. Analyizing the bad data repeatedly we came up with a sequence of remapping of bad to canonical which left `r final.recs` rows we could not easily account for representing `r final.EVTYPE` bad EVTYPE. Overall we reduced the bad data to `r final.recs/nrow(storms)` percent of the initial filtered dataset.
+
+What were these last `r final.recs` we left out? They consisted of the following EVTYPE:
+```{r}
+## print out all current bad EVTYPE
+sort(unique(bad$EVTYPE))
+```
+
+## Results: Impact to life, limb and property
+```{r}
+costs <- storms %>%
+  group_by(valid) %>%
+  summarise(damage = sum(prop, crop), death = sum(FATALITIES), injury = sum(INJURIES))
+
+costs$valid <- reorder(costs$valid, costs$damage)
+
+tmp <- head(costs[with(costs, order(-damage)), ], 15)
+
+dotplot(valid ~ damage, data = tmp,
+        aspect = 1.5,
+        scales = list(cex = .65),
+#        xlim = c(-100, 2300),
+        xlab = "Value of Property/Crop damage",
+        panel = function (x, y) {
+          panel.segments(rep(0, length(x)), as.numeric(y),
+                         x, as.numeric(y), lty = 2, col = "gray")
+          panel.xyplot(x, as.numeric(y), pch = 16, col = "black")} )
+
+llabs < -c("1","2","3","4","30","40","50","60", "80","100","200","300","400","500","1bn","2bn","3bn","4bn", "5bn")
+p <-
+  ggplot(data, aes(Spending, reorder(Category, Spending))) +
+  scale_y_discrete(name = " ") +
+  scale_x_continuous(name = "Millions of Nominal Dollars", breaks=c(1,2,3,4,30,40,50,60,80,100,200,300,400,500,1000,2000,3000,4000,5000),
+                     labels=llabs) + 
+  geom_point(colour="blue",size=2.5) 
+
+p + facet_grid(. ~ Order, scalee="free") + 
+  opts(
+    axis.text.y = theme_text(colour = "#000000", hjust = 1),
+    axis.text.x = theme_text(colour = "#000000", vjust = 1)
+    ) + 
+  opts(title = "Scale and Allocation of Total Expenditure from WPA and Sponsors' Funds, through March 1943\n")
+    
+
+```
