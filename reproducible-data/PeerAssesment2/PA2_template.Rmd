@@ -127,6 +127,9 @@ Perusing the first 25 unique EVTYPE we see liberties were taken in recording any
 First order of business is to get a canonical list of the 48 standard events. We created a text file that listed the events one to a line using copy/paste from the NOAA document [here.](http://www1.ncdc.noaa.gov/pub/data/swdi/stormevents/csvfiles/Storm-Data-Export-Format.docx) 
 
 ```{r}
+## Note I have made the valid NOAA Events available at:
+## https://github.com/buelchandler/datasciencecoursera/blob/master/reproducible-data/PeerAssesment2/data/valid-events.txt
+
 canonicalFile = "./data/valid-events.txt"
 ## might as well put into all lower, no extra spaces format used through rest of analysis
 canonical <- str_to_lower(str_trim(readLines(canonicalFile)))
