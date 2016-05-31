@@ -334,7 +334,7 @@ prop.plot <- dotplot(reorder(valid, prop.dmg) ~ prop.dmg, data = prop,
         aspect = 1.5,
         scales = list(cex = .65),
         main = "Property Damage",
-        xlab = "Damage ($Millions)",
+        xlab = "1996--2011 ($Millions)",
         panel = function (x, y) {
           panel.segments(rep(0, length(x)), as.numeric(y),
                          x, as.numeric(y), lty = 2, col = "gray")
@@ -344,7 +344,7 @@ crop.plot <- dotplot(reorder(valid, crop.dmg) ~ crop.dmg, data = crop,
         aspect = 1.5,
         scales = list(cex = .65),
         main = "Crop Damage",
-        xlab = "Damage ($Millions)",
+        xlab = "1996--2011 ($Millions)",
         panel = function (x, y) {
           panel.segments(rep(0, length(x)), as.numeric(y),
                          x, as.numeric(y), lty = 2, col = "gray")
@@ -365,8 +365,8 @@ injury <- head(costs[order(-costs$injury), ], 10) ## use injury to sort order
 death.plot <- dotplot(reorder(valid, death) ~ death, data = death,
         aspect = 1.5,
         scales = list(cex = .65),
-        main = "Human Costs",
-        xlab = "Deaths)",
+        main = "Deaths",
+        xlab = "1996--2011",
         panel = function (x, y) {
           panel.segments(rep(0, length(x)), as.numeric(y),
                          x, as.numeric(y), lty = 2, col = "gray")
@@ -375,8 +375,8 @@ death.plot <- dotplot(reorder(valid, death) ~ death, data = death,
 injury.plot <- dotplot(reorder(valid, injury) ~ injury, data = injury,
         aspect = 1.5,
         scales = list(cex = .65),
-        main = "Human Costs",
-        xlab = "Injuries",
+        main = "Injuries",
+        xlab = "1996--2011",
         panel = function (x, y) {
           panel.segments(rep(0, length(x)), as.numeric(y),
                          x, as.numeric(y), lty = 2, col = "gray")
