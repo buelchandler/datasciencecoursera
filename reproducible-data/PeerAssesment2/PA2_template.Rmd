@@ -9,7 +9,7 @@ output:
 ---
 #Weather Impact on Life and Property
 
-> The end-goal is to determine which weather events have the biggest impact to deaths, injury, and property/crop damage. We are given a dataset that covers various weather events from 1950 through late 2011. The years 1950 through 1995 essentially accounted for only one weather type (Tornado), so we decide to look only from 1996 on. Then we have to do various transformations to the data (actually the bulk of this paper), due to non-conformity of manual input. Determining the impacts of the various weather events is then straightforward. The "Big 3" for each category are:
+> **Synopsis:** The end-goal is to determine which weather events have the biggest impact to deaths, injury, and property/crop damage. We are given a dataset that covers various weather events from 1950 through late 2011. The years 1950 through 1995 essentially accounted for only one weather type (Tornado), so we decide to look only from 1996 on. Then we have to do various transformations to the data (actually the bulk of this paper), due to non-conformity of manual input. Determining the impacts of the various weather events is then straightforward. The "Big 3" for each category are:
 
 |Deaths|Injuries|Property|Crop|
 |:----:|:------:|:------:|:---:|

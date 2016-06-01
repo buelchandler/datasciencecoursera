@@ -3,7 +3,7 @@ Buel Chandler
 `r format(Sys.time(), "%d %B, %Y")`  
 #Weather Impact on Life and Property
 
-> The end-goal is to determine which weather events have the biggest impact to deaths, injury, and property/crop damage. We are given a dataset that covers various weather events from 1950 through late 2011. The years 1950 through 1995 essentially accounted for only one weather type (Tornado), so we decide to look only from 1996 on. Then we have to do various transformations to the data (actually the bulk of this paper), due to non-conformity of manual input. Determining the impacts of the various weather events is then straightforward. The "Big 3" for each category are:
+> **Synopsis:** The end-goal is to determine which weather events have the biggest impact to deaths, injury, and property/crop damage. We are given a dataset that covers various weather events from 1950 through late 2011. The years 1950 through 1995 essentially accounted for only one weather type (Tornado), so we decide to look only from 1996 on. Then we have to do various transformations to the data (actually the bulk of this paper), due to non-conformity of manual input. Determining the impacts of the various weather events is then straightforward. The "Big 3" for each category are:
 
 |Deaths|Injuries|Property|Crop|
 |:----:|:------:|:------:|:---:|
@@ -15,7 +15,7 @@ Buel Chandler
 
 The U.S. National Oceanic and Atmospheric Administration's (NOAA) maintains a storm database which contains information of major weather events that have occurred over the years (since 1950) in and around the United States. The information includes when and where the events occurred, and impacts to life (fatalities, injuries), and impacts to property and crops. And those impacts are significant. In this paper we look at weather events that caused biggest impacts.
 
-The [NOAA Storm Events](http://www.ncdc.noaa.gov/stormevents/details.jsp) website is a good starting point for exploring the resource. We note that right of we are told that only *Tornadoes* were covered from 1950 (the database starting point) through 1954. *Thunderstorm Wind, Hail* were added in 1955 as unique weather events. In 1996, 45 other unique weather events were added (e.g., *Hurricanes*, *Ice Storms*, et cetera)
+The [NOAA Storm Events](http://www.ncdc.noaa.gov/stormevents/details.jsp) website is a good starting point for exploring the resource. We note that right off we are told that only *Tornadoes* were covered from 1950 (the database starting point) through 1954. *Thunderstorm Wind, Hail* were added in 1955 as unique weather events. In 1996, 45 other unique weather events were added (e.g., *Hurricanes*, *Ice Storms*, et cetera)
 
 The code to produce this report is available on [GitHub](https://github.com/buelchandler/datasciencecoursera/tree/master/reproducible-data/PeerAssesment2)
 
@@ -115,7 +115,7 @@ As noted in our introduction above, prior to 1996 the database tracked *Tornado*
 
 Impact to human life are covered in two variables: **FATALITIES**, **INJURIES**, which indicates number of each for any particular event.
 
-Property damage is indicated by variable **PROPDMG**, which indicates some estimated monetary loss, and magnitude of that loss by **PROPDMGEXP**. Though not consistent throughout, we could see something like an overall $10,000,000 loss given as a **PROBDMG** of 10 and a **PROPDMGEXP** of "M" (for million). Details are broken out in an appropriate code segment below.
+Property damage is indicated by variable **PROPDMG**, which indicates some estimated monetary loss, and magnitude of that loss by **PROPDMGEXP**. Though not consistent throughout, we could see something like an overall $10,000,000 loss given as a **PROPDMG** of 10 and a **PROPDMGEXP** of "M" (for million). Details are broken out in an appropriate code segment below.
 
 Crop damage is handled similar to property damage data, and is given in corresponding variables **CROPDMG** and **CROPDMGEXP**, and is detailed in an appropriate code segment below.
 
@@ -454,41 +454,6 @@ costs <- storms %>%
             injury = sum(INJURIES))
 ```
 
-### Property/Crop damage by Weather Event
-
-
-```r
-prop <- head(costs[order(-costs$prop.dmg), ], 10) ## use prop damage to sort order
-crop <- head(costs[order(-costs$crop.dmg), ], 10) ## use crop damage to sort order
-
-## PROPERTY/CROP DAMAGE Totals
-prop.plot <- dotplot(reorder(valid, prop.dmg) ~ prop.dmg, data = prop,
-        aspect = 1.5,
-        scales = list(cex = .65),
-        main = "Property Damage",
-        xlab = "1996--2011 ($Millions)",
-        panel = function (x, y) {
-          panel.segments(rep(0, length(x)), as.numeric(y),
-                         x, as.numeric(y), lty = 2, col = "gray")
-          panel.xyplot(x, as.numeric(y), pch = 16, col = "black")} )
-
-crop.plot <- dotplot(reorder(valid, crop.dmg) ~ crop.dmg, data = crop,
-        aspect = 1.5,
-        scales = list(cex = .65),
-        main = "Crop Damage",
-        xlab = "1996--2011 ($Millions)",
-        panel = function (x, y) {
-          panel.segments(rep(0, length(x)), as.numeric(y),
-                         x, as.numeric(y), lty = 2, col = "gray")
-          panel.xyplot(x, as.numeric(y), pch = 16, col = "black")} )
-
- grid.arrange(prop.plot, crop.plot, ncol=2)
-```
-
-![](figure-html/unnamed-chunk-14-1.png)<!-- -->
-
-The dot-charts shows that the top 3 events for causing property damage are, in order: flood, hurricane, and storm surge. For crop damage, the top 3 are: drought, hurricane. flood.
-
 ### Human Cost -- Fatalities and Injuries
 
 
@@ -520,8 +485,44 @@ injury.plot <- dotplot(reorder(valid, injury) ~ injury, data = injury,
  grid.arrange(death.plot, injury.plot, ncol=2)
 ```
 
-![](figure-html/unnamed-chunk-15-1.png)<!-- -->
+![](figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 Heat, followed by tornado and flash floods are the most significant cause of death of the various events.
 
 Tornadoes are by far the overwhelming cause of bodily, non-fatal injury. The next four events (flood, heat, wind and lightning) also cause significant injury.
+
+### Property/Crop damage by Weather Event
+
+
+```r
+prop <- head(costs[order(-costs$prop.dmg), ], 10) ## use prop damage to sort order
+crop <- head(costs[order(-costs$crop.dmg), ], 10) ## use crop damage to sort order
+
+## PROPERTY/CROP DAMAGE Totals
+prop.plot <- dotplot(reorder(valid, prop.dmg) ~ prop.dmg, data = prop,
+        aspect = 1.5,
+        scales = list(cex = .65),
+        main = "Property Damage",
+        xlab = "1996--2011 ($Millions)",
+        panel = function (x, y) {
+          panel.segments(rep(0, length(x)), as.numeric(y),
+                         x, as.numeric(y), lty = 2, col = "gray")
+          panel.xyplot(x, as.numeric(y), pch = 16, col = "black")} )
+
+crop.plot <- dotplot(reorder(valid, crop.dmg) ~ crop.dmg, data = crop,
+        aspect = 1.5,
+        scales = list(cex = .65),
+        main = "Crop Damage",
+        xlab = "1996--2011 ($Millions)",
+        panel = function (x, y) {
+          panel.segments(rep(0, length(x)), as.numeric(y),
+                         x, as.numeric(y), lty = 2, col = "gray")
+          panel.xyplot(x, as.numeric(y), pch = 16, col = "black")} )
+
+ grid.arrange(prop.plot, crop.plot, ncol=2)
+```
+
+![](figure-html/unnamed-chunk-15-1.png)<!-- -->
+
+The dot-charts shows that the top 3 events for causing property damage are, in order: flood, hurricane, and storm surge. For crop damage, the top 3 are: drought, hurricane. flood.
+
