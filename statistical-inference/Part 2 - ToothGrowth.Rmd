@@ -1,0 +1,168 @@
+---
+title: "Tooth Growth Analysis"
+subtitle: "Statistical Inference (JHU)"
+author: "Buel Chandler"
+date: "`r Sys.Date()`"
+output:
+  tufte::tufte_html: default
+  tufte::tufte_handout:
+    citation_package: natbib
+    latex_engine: xelatex
+    highlight: zenburn
+  tufte::tufte_book:
+    citation_package: natbib
+    latex_engine: xelatex
+## bibliography: skeleton.bibkable
+link-citations: yes
+---
+
+```{r setup, include=FALSE}
+library(tufte)
+# invalidate cache when the tufte version changes
+knitr::opts_chunk$set(tidy = FALSE, cache.extra = packageVersion('tufte'))
+options(htmltools.dir.version = FALSE)
+```
+
+## Overview
+
+`r newthought('In the ')`ToothGrowth dataset that comes standard in the R repository, the response variable is the length of odontoblasts (cells responsible for tooth growth) in 60 guinea pigs split into 6 groups of (we assume independently chosen) 10, each group receiving one of three dose levels of Vitamin C (0.5, 1.0, and 2.0 mg) with one of two delivery methods (orange juice [OJ] or an aqueous solution of ascorbic acid [VC]).^[See Edward Kuns description [here](https://bugs.r-project.org/bugzilla3/show_bug.cgi?id=15953)]
+
+In this paper, we do an exploratory analysis of the data, then run through some *t-test* to confirm what we see that:
+\begin{itemize}
+\item At lower dosages (0.5, 1), OJ seems to have better growth characteristics
+\item At highest dosage (2), OJ flattens out a bit and looks similar to VC.
+\end{itemize}
+
+## Exploratory Data Analysis
+
+Note that all the code required to reproduce all the analysis is provided in an appendix after the expository portion of this paper. We look first at the structure of the *ToothGroth* dataset:
+
+```{r data, echo=FALSE}
+## we use the Tufte feature of R Markdown to produce the desired style  Render with:
+## render("Part 2 - ToothGrowth.Rmd", output_format = "tufte_handout")
+
+library(knitr, quietly = TRUE, warn.conflicts = FALSE) ## for "spread" function
+library(tidyr, quietly = TRUE, warn.conflicts = FALSE) ## for "spread" function
+library(dplyr, quietly = TRUE, warn.conflicts = FALSE) ## manipulate the data
+library(pastecs, quietly = TRUE, warn.conflicts = FALSE) ## we want to use the "stat.desc" function
+
+data(ToothGrowth)
+str(ToothGrowth)
+```
+And now look at the breakdown of Supplement and Dose:
+
+```{r data.2, echo=FALSE}
+table(ToothGrowth$supp, ToothGrowth$dose)
+```
+
+\newpage
+Since **dose** has 3 discrete levels, we make it a factor, then produce a conditioning plot (Figure 1) for initial exploratory purposes. We see that for both supplement type (OJ, VC) increasing dosage gives increased length. At lower dosages (0.5, 1), OJ seems to have better growth characteristics, while at highest dosage (2), OJ flattens out a bit and looks similar to VC.
+
+```{r coplot, fig.margin = TRUE, fig.cap = "ToothGrowth: length vs dose, by supplement type", fig.width=3.5, fig.height=3.5, echo=FALSE}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose) ## convert to a factor as only 3 levels
+
+coplot(len ~ dose | supp, data = ToothGrowth, panel = panel.smooth, xlab = c("Dose", "Supplement"),
+       ylab = "Length")
+```
+
+We now produce a table of summary statistics for each of the breakouts of supplement by dose:
+
+```{r desc, echo=FALSE}
+## turn 2-column into 1-column. E.g. "OC" "1.0" becomes "OC1.0"
+ToothGrowth$treat <- with(ToothGrowth, interaction(supp, dose))
+
+## reduce the dataset down to one column of 10 obs for each of 6 different treatments
+growth <- ToothGrowth %>%
+  select(len, treat) %>%
+  group_by(treat) %>%
+  mutate(row = 1:n()) %>%
+  spread(treat, len) %>%
+  select(-row)
+
+stats <- stat.desc(growth)
+stats <- round(stats, 2)
+kable(stats[c(1, 4:14),], caption = "Summary Statistics")
+```
+
+Table 1 seems to corroborate what our picture tells us, so now lets get a bit more into the statistical analysis aspect of this study.
+
+## Key Assumptions
+
+We assume that the Guinea Pigs are of same/similar stock, and randomly assigned into which of the 6 buckets (OJ vs VC, dosage 0.5, 1. 2) and remain within that group for study duration (hence paired = FALSE in the t-tests). We further assume that for each bucket the distribution of tooth length is fairly normal, though we do not assume same variation (hence var.equal = FALSE in the t-tests).
+
+## Hypothesis Tests: T-test's and the EDA Confirmation
+
+So next we run a series of *t-test* pitting each supplement at each corresponding dosage level. For all the tests we will use the following hypothesis:
+\begin{itemize}
+\item $H_0: \mu_{OJ} = \mu_{VC}$, the means of type delivery are the same (at appropriate dosage)
+\item $H_a: \mu_{OJ} > \mu_{VC}$, since our EDA indicates this may be appropriate for some levels
+\end{itemize}
+Table 2 shows the selected statistics we derive from each *t-test* (again see the appendix for the gory details). 
+
+```{r tests, echo=FALSE}
+tt <- NULL
+
+tt <- rbind(tt, c("OJ.0.5 vs VC.0.5",
+                  round(
+                    unlist(
+                      t.test(growth$OJ.0.5, growth$VC.0.5, var.equal = FALSE, paired = FALSE)[
+                        c("estimate","p.value","conf.int")]),
+                    4)))
+
+tt <- rbind(tt, c("OJ.1 vs VC.1",
+                  round(
+                    unlist(
+                      t.test(growth$OJ.1, growth$VC.1, var.equal = FALSE, paired = FALSE)[
+                        c("estimate","p.value","conf.int")]),
+                    4)))
+                        
+tt <- rbind(tt, c("OJ.2 vs VC.2",
+                  round(
+                    unlist(
+                      t.test(growth$OJ.2, growth$VC.2, var.equal = FALSE, paired = FALSE)[
+                        c("estimate","p.value","conf.int")]),
+                    4)))
+
+
+## for comparing all OJ vs VC we just hit up the original dataset
+tt <- rbind(tt, c("All OJ vs All VC", 
+                  round(
+                    unlist(
+                      t.test(ToothGrowth[ToothGrowth$supp == "OJ",1],
+                             ToothGrowth[ToothGrowth$supp == "VC",1],
+                             var.equal = FALSE, paired = FALSE)[
+                      c("estimate","p.value", "conf.int")]),
+                    4)))
+
+colnames(tt) <- c("X vs Y", "Mean X", "Mean Y", "p-value", "(Conf Int", "Conf Int)")
+
+kable(tt, caption = "T-test Results")
+```
+
+## Conclusion
+
+From this we see that for smaller individual dosage levels (0.1, 1.0) the null hypothesis ($H_0: \mu_{OJ} = \mu_{VC}$) can be discounted due to the corresponding confidence intervals do not contain $0$ and associated p-value indicate strong confidence, leaving the alternate hypothesis ($H_a: \mu_{OJ} > \mu_{VC}$)^[Greater than because the confidence interval lies strictly positive.]. However, looking at the highest dosage level (2.0), and at the *t-test* looking at only supplement regardless of dosage, we cannot discount $H_0$ as $0$ is included in the confidence intervals, and the p-values are large.
+
+\newpage
+#Appendix
+```{r ref.label="setup", eval=FALSE}
+```
+
+
+## Get the Data and Look at it
+```{r ref.label="data", eval=FALSE}
+```
+```{r ref.label="data.2", eval=FALSE}
+```
+## What Does it Look Like?
+```{r ref.label="coplot", eval=FALSE}
+```
+
+```{r ref.label="desc", eval=FALSE}
+```
+
+## The Tests
+```{r ref.label="tests", eval=FALSE}
+```
+
+

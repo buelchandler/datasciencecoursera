@@ -1,0 +1,97 @@
+---
+title: "An Emperical Look at the Central Limit Theorem"
+author: "Buel Chandler"
+date: "June 15, 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,dev = 'pdf',fig.width = 6,fig.height = 4)
+```
+
+## Overview
+
+In this paper we experiment with sampling from the Exponential distribution $\lambda e^{-\lambda x}$ to show how close we come to the actual distribution mean ($\mu = {}^1/_\lambda$) and the actual distribution variance ($\sigma^2 = {}^1/_{\lambda^2}$) of the Exponential distribution. Additionally we show how well the experiment supports the Central Limit Theorem -- i.e., convergence to a Normal distribution.
+
+## Initialize the Experiment
+
+```{r}
+library(pastecs, quietly = TRUE) ## we want to use the "stat.desc" function
+
+## prime the pump of the Random Number Generator for reproducability
+set.seed(7131958) 
+
+## set our constants
+n.obs <- 40 ## each sample will have 40 obs pulled from exponential distribution
+n.samples <- 1000 ## we'll take 1,000 such samples
+lambda <- 0.2 ## Exponential distribution "rate" used in this study
+exp.mean <- 1/lambda ## the actual mean of the population distribution
+exp.var <- 1/(lambda^2)/n.obs ## the actual variance of the population distribution
+```
+
+## Simulation -- Get the Samples 
+
+Here we use the *pastecs::stat.desc()* function to compute the statistics on each of the `n.samples` columns, where each column represents one unique sample. Each column contains 14 statistics of the single sample pulls of `n.obs` from the exponential distribution with parameter lambda.
+
+```{r}
+samples <- replicate(n.samples, stat.desc(rexp(n.obs, rate = lambda)))
+dim(samples)
+row.names(samples)
+```
+\newpage
+## How Close to the Population Mean and Varience? 
+
+```{r}
+samp.mean <- mean(samples["mean",]) ## take the mean of all the sample means
+samp.var <- mean(samples["var",])/n.obs ## take the mean of all the sample variances
+```
+
+In Table \ref{table:compare} we show how close our sampled means and variance come to the idealized $N(5,0.625)$.
+
+\begin{table}[ht]
+\caption{Exponential Theoretical vs. Empirical}
+\centering
+\begin{tabular}{c c c }
+\hline
+ & Mean & Variance  \\ [0.5ex] % inserts table %heading
+\hline
+Theoretical &`r exp.mean` & `r exp.var` \\
+Samples     & `r round(samp.mean, digits=3)` & `r round(samp.var, digits=3)` \\
+Absolute Deltas & `r round(abs(samp.mean-exp.mean), digits=3)` & `r round(abs(samp.var-exp.var), digits=3)` \\ 
+\hline
+\end{tabular}
+\label{table:compare}
+\end{table}
+
+## One Large Sample Versus Many Small Samples and the Central Limit Theorem 
+
+When we look at one large sample of the Exponential distribution, we end up with data that obviously tends to the population (or theoretical) Exponential distribution. 
+
+```{r}
+## we will compare the distribution of a sample of 1000 pulls from the Exponential distribution
+big.sample <- rexp(n.samples, rate = lambda) ## used in CLT portion for comparison
+
+x <- seq(0,40,1)
+hist(big.sample, breaks = 20, col = "green", freq = FALSE, main = "1,000 pulls from Standard Exponential")
+curve(dexp(x, rate = 0.2), add = TRUE, lwd = 4, col = "black")
+abline(v = exp.mean, col = "red", lwd = 4)
+legend("topright", lty = c(1,1), lwd = c("4", "4"),
+       legend = c("Exponential dist mean", "Exponential distribution"), col = c("red", "black"))
+```
+
+## Empirical Look at Central Limit Theorem
+
+The Central Limit Theorem for this case states that as we increase number of samples from any distribution, the mean of each sample considered as a distribution should as number of samples gets bigger trend to a Normal distribution with mean $\mu = {}^1/_\lambda = 5$ and standard deviation $\sigma = {}^1/_{\lambda \sqrt{n}} = 0.79$ where $n$ is number observations per sample (40 in this case).
+
+
+```{r}
+x <- seq(1,9,0.01)
+hist(samples["mean",], breaks = 20, col = "green", freq = FALSE,
+     main = "1,000 pulls of 40 Obs from Standard Exponential")
+curve(dnorm(x, mean = exp.mean, sd = sqrt(exp.var)), add = TRUE, lwd = 4, col = "black")
+abline(v = exp.mean, col = "red", lwd = 4)
+legend("topright", legend = c("Normal Mean", "Normal distribution"), col = c("red", "black"),
+       lty = c(1,1), lwd = c("4", "4"))
+
+```
+
