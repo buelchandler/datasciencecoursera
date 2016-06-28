@@ -141,7 +141,7 @@ kable(tt, caption = "T-test Results")
 
 ## Conclusion
 
-From this we see that for smaller individual dosage levels (0.1, 1.0) the null hypothesis ($H_0: \mu_{OJ} = \mu_{VC}$) can be discounted due to the corresponding confidence intervals do not contain $0$ and associated p-value indicate strong confidence, leaving the alternate hypothesis ($H_a: \mu_{OJ} > \mu_{VC}$)^[Greater than because the confidence interval lies strictly positive.]. However, looking at the highest dosage level (2.0), and at the *t-test* looking at only supplement regardless of dosage, we cannot discount $H_0$ as $0$ is included in the confidence intervals, and the p-values are large.
+From this we see that for smaller individual dosage levels (0.5, 1.0) the null hypothesis ($H_0: \mu_{OJ} = \mu_{VC}$) can be discounted due to the corresponding confidence intervals do not contain $0$ and associated p-value indicate strong confidence, leaving the alternate hypothesis ($H_a: \mu_{OJ} > \mu_{VC}$)^[Greater than because the confidence interval lies strictly positive.]. However, looking at the highest dosage level (2.0), and at the *t-test* looking at only supplement regardless of dosage, we cannot discount $H_0$ as $0$ is included in the confidence intervals, and the p-values are large.
 
 \newpage
 #Appendix
